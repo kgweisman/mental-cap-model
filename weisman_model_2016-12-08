@@ -1,0 +1,273 @@
+// make the model
+var model = function() {
+
+  // PRIOR KNOWLEDGE about ENTITIES: hierarchy of categories
+  var level1sd = 0.5
+  var level2sd = 0.5*level1sd
+  var level3sd = 0.5*level2sd
+
+  var gammaAnimate = gaussian(0, level1sd)
+  var gammaInanimate = gaussian(0, level1sd)
+
+  var gammaHuman = gaussian(gammaAnimate, level2sd)
+  var gammaAnimal = gaussian(gammaAnimate, level2sd)
+
+  var gammaGrownup = gaussian(gammaHuman, level3sd)
+  var gammaChild = gaussian(gammaHuman, level3sd)
+  var gammaBaby = gaussian(gammaHuman, level3sd)
+
+  var gammaDog = gaussian(gammaAnimal, level3sd)
+  var gammaBear = gaussian(gammaAnimal, level3sd)
+  var gammaBug = gaussian(gammaAnimal, level3sd)
+
+  var gammaRobot = gaussian(gammaInanimate, level3sd)
+  var gammaComputer = gaussian(gammaInanimate, level3sd)
+  var gammaCar = gaussian(gammaInanimate, level3sd)
+  var gammaStapler = gaussian(gammaInanimate, level3sd)
+
+  var gammas = {
+    grownup: gammaGrownup,
+    child: gammaChild,
+    baby: gammaBaby,
+    dog: gammaDog,
+    bear: gammaBear,
+    bug: gammaBug,
+    robot: gammaRobot,
+    computer: gammaComputer,
+    car: gammaCar,
+    stapler: gammaStapler
+  }
+
+  factor(2*(gammaAnimate - gammaInanimate))
+  factor(2*(gammaHuman - gammaAnimal))
+
+  // condition(gammaAnimate > gammaInanimate)
+  // condition(gammaHuman > gammaAnimal)
+
+  // HELPER FUNCTIONS
+
+  // define logistic function
+  var logistic = function(x){
+    // simplified logistic where L = 1, k = 1, x0 = 0
+    return 1 / (1 + Math.exp(-x))
+  }
+
+  // define beta parameter
+  var concentration = 10;
+
+  // PRIOR KNOWLEDGE about CAPACITIES
+
+  // define categorical and continuous distributions
+  var capacityObj = {
+    categorical: function(entity) {
+      var g = gammas[entity]
+      return mem(function (entity, g) {
+        return flip(logistic(g)) ? 1 : 0
+      })
+    },
+    continuous: function(entity) {
+      var g = gammas[entity]
+      var mu = logistic(g);
+      var a =  mu * concentration;
+      var b = (1 - mu) * concentration;
+      return mem(function (entity, g) {
+        return beta(a,b)
+      })
+    }
+  }
+
+  // define winner function
+  var winner = function (entity1, entity2, capacity) {
+
+    // prior knowledge about CAPACITIES: hunger is categorical, thinking is continuous
+    var capType = (capacity === 'hunger') ? 'categorical' : 
+    (capacity === 'thinking') ? 'continuous' : 
+    flip() ? 'categorical' : 'continuous'
+
+    var capacityFun = capacityObj[capType]
+
+    return capacityFun(entity1) > capacityFun(entity2) ? entity1 : 
+    capacityFun(entity1) < capacityFun(entity2) ? entity2 :
+    flip() ? entity1 : entity2 // resolve ties fairly
+  }
+
+  // return winners for every possible combination of characters
+  // ... for HUNGER
+  var hungerWinners = [winner('grownup', 'child', 'hunger'),
+                       winner('grownup', 'baby', 'hunger'),
+                       winner('grownup', 'dog', 'hunger'),
+                       winner('grownup', 'bear', 'hunger'),
+                       winner('grownup', 'bug', 'hunger'),
+                       winner('grownup', 'robot', 'hunger'),
+                       winner('grownup', 'computer', 'hunger'),
+                       winner('grownup', 'car', 'hunger'),
+                       winner('grownup', 'stapler', 'hunger'),
+                       winner('child', 'baby', 'hunger'),
+                       winner('child', 'dog', 'hunger'),
+                       winner('child', 'bear', 'hunger'),
+                       winner('child', 'bug', 'hunger'),
+                       winner('child', 'robot', 'hunger'),
+                       winner('child', 'computer', 'hunger'),
+                       winner('child', 'car', 'hunger'),
+                       winner('child', 'stapler', 'hunger'),
+                       winner('baby', 'dog', 'hunger'),
+                       winner('baby', 'bear', 'hunger'),
+                       winner('baby', 'bug', 'hunger'),
+                       winner('baby', 'robot', 'hunger'),
+                       winner('baby', 'computer', 'hunger'),
+                       winner('baby', 'car', 'hunger'),
+                       winner('baby', 'stapler', 'hunger'),
+                       winner('dog', 'bear', 'hunger'),
+                       winner('dog', 'bug', 'hunger'),
+                       winner('dog', 'robot', 'hunger'),
+                       winner('dog', 'computer', 'hunger'),
+                       winner('dog', 'car', 'hunger'),
+                       winner('dog', 'stapler', 'hunger'),
+                       winner('bear', 'bug', 'hunger'),
+                       winner('bear', 'robot', 'hunger'),
+                       winner('bear', 'computer', 'hunger'),
+                       winner('bear', 'car', 'hunger'),
+                       winner('bug', 'stapler', 'hunger'),
+                       winner('bug', 'robot', 'hunger'),
+                       winner('bug', 'computer', 'hunger'),
+                       winner('bug', 'car', 'hunger'),
+                       winner('bug', 'stapler', 'hunger'),
+                       winner('robot', 'computer', 'hunger'),
+                       winner('robot', 'car', 'hunger'),
+                       winner('robot', 'stapler', 'hunger'),
+                       winner('computer', 'car', 'hunger'),
+                       winner('computer', 'stapler', 'hunger'),
+                       winner('car', 'stapler', 'hunger')]
+
+  // ... for THINKING
+  var thinkingWinners = [winner('grownup', 'child', 'thinking'),
+                         winner('grownup', 'baby', 'thinking'),
+                         winner('grownup', 'dog', 'thinking'),
+                         winner('grownup', 'bear', 'thinking'),
+                         winner('grownup', 'bug', 'thinking'),
+                         winner('grownup', 'robot', 'thinking'),
+                         winner('grownup', 'computer', 'thinking'),
+                         winner('grownup', 'car', 'thinking'),
+                         winner('grownup', 'stapler', 'thinking'),
+                         winner('child', 'baby', 'thinking'),
+                         winner('child', 'dog', 'thinking'),
+                         winner('child', 'bear', 'thinking'),
+                         winner('child', 'bug', 'thinking'),
+                         winner('child', 'robot', 'thinking'),
+                         winner('child', 'computer', 'thinking'),
+                         winner('child', 'car', 'thinking'),
+                         winner('child', 'stapler', 'thinking'),
+                         winner('baby', 'dog', 'thinking'),
+                         winner('baby', 'bear', 'thinking'),
+                         winner('baby', 'bug', 'thinking'),
+                         winner('baby', 'robot', 'thinking'),
+                         winner('baby', 'computer', 'thinking'),
+                         winner('baby', 'car', 'thinking'),
+                         winner('baby', 'stapler', 'thinking'),
+                         winner('dog', 'bear', 'thinking'),
+                         winner('dog', 'bug', 'thinking'),
+                         winner('dog', 'robot', 'thinking'),
+                         winner('dog', 'computer', 'thinking'),
+                         winner('dog', 'car', 'thinking'),
+                         winner('dog', 'stapler', 'thinking'),
+                         winner('bear', 'bug', 'thinking'),
+                         winner('bear', 'robot', 'thinking'),
+                         winner('bear', 'computer', 'thinking'),
+                         winner('bear', 'car', 'thinking'),
+                         winner('bug', 'stapler', 'thinking'),
+                         winner('bug', 'robot', 'thinking'),
+                         winner('bug', 'computer', 'thinking'),
+                         winner('bug', 'car', 'thinking'),
+                         winner('bug', 'stapler', 'thinking'),
+                         winner('robot', 'computer', 'thinking'),
+                         winner('robot', 'car', 'thinking'),
+                         winner('robot', 'stapler', 'thinking'),
+                         winner('computer', 'car', 'thinking'),
+                         winner('computer', 'stapler', 'thinking'),
+                         winner('car', 'stapler', 'thinking')]
+
+  // tally up winners
+  var numGrownupHunger = sum(map(function(b){return b === 'grownup'}, hungerWinners))
+  var numChildHunger = sum(map(function(b){return b === 'child'}, hungerWinners))
+  var numBabyHunger = sum(map(function(b){return b === 'baby'}, hungerWinners))
+  var numDogHunger = sum(map(function(b){return b === 'dog'}, hungerWinners))
+  var numBearHunger = sum(map(function(b){return b === 'bear'}, hungerWinners))
+  var numBugHunger = sum(map(function(b){return b === 'bug'}, hungerWinners))
+  var numRobotHunger = sum(map(function(b){return b === 'robot'}, hungerWinners))
+  var numComputerHunger = sum(map(function(b){return b === 'computer'}, hungerWinners))
+  var numCarHunger = sum(map(function(b){return b === 'car'}, hungerWinners))
+  var numStaplerHunger = sum(map(function(b){return b === 'stapler'}, hungerWinners))
+
+  var numGrownupThinking = sum(map(function(b){return b === 'grownup'}, thinkingWinners))
+  var numChildThinking = sum(map(function(b){return b === 'child'}, thinkingWinners))
+  var numBabyThinking = sum(map(function(b){return b === 'baby'}, thinkingWinners))
+  var numDogThinking = sum(map(function(b){return b === 'dog'}, thinkingWinners))
+  var numBearThinking = sum(map(function(b){return b === 'bear'}, thinkingWinners))
+  var numBugThinking = sum(map(function(b){return b === 'bug'}, thinkingWinners))
+  var numRobotThinking = sum(map(function(b){return b === 'robot'}, thinkingWinners))
+  var numComputerThinking = sum(map(function(b){return b === 'computer'}, thinkingWinners))
+  var numCarThinking = sum(map(function(b){return b === 'car'}, thinkingWinners))
+  var numStaplerThinking = sum(map(function(b){return b === 'stapler'}, thinkingWinners))
+
+  var numberVals = {gammaAnimate : gammaAnimate,
+                    gammaInanimate: gammaInanimate,
+                    gammaHuman: gammaHuman,
+                    gammaAnimal: gammaAnimal,
+                    hungerGrownup: numGrownupHunger, 
+                    hungerChild: numChildHunger, 
+                    hungerBaby: numBabyHunger, 
+                    hungerDog: numDogHunger, 
+                    hungerBear: numBearHunger, 
+                    hungerBug: numBugHunger, 
+                    hungerRobot: numRobotHunger, 
+                    hungerComputer: numComputerHunger, 
+                    hungerCar: numCarHunger, 
+                    hungerStapler: numStaplerHunger,
+                    thinkingGrownup: numGrownupThinking, 
+                    thinkingChild: numChildThinking, 
+                    thinkingBaby: numBabyThinking, 
+                    thinkingDog: numDogThinking, 
+                    thinkingBear: numBearThinking, 
+                    thinkingBug: numBugThinking, 
+                    thinkingRobot: numRobotThinking, 
+                    thinkingComputer: numComputerThinking, 
+                    thinkingCar: numCarThinking, 
+                    thinkingStapler: numStaplerThinking
+                   }
+
+  var nComparisons = hungerWinners.length
+
+  var percentVals = {gammaAnimate : gammaAnimate,
+                     gammaInanimate: gammaInanimate,
+                     gammaHuman: gammaHuman,
+                     gammaAnimal: gammaAnimal,
+                     hungerGrownup: numGrownupHunger/nComparisons, 
+                     hungerChild: numChildHunger/nComparisons, 
+                     hungerBaby: numBabyHunger/nComparisons, 
+                     hungerDog: numDogHunger/nComparisons, 
+                     hungerBear: numBearHunger/nComparisons, 
+                     hungerBug: numBugHunger/nComparisons, 
+                     hungerRobot: numRobotHunger/nComparisons, 
+                     hungerComputer: numComputerHunger/nComparisons, 
+                     hungerCar: numCarHunger/nComparisons, 
+                     hungerStapler: numStaplerHunger/nComparisons,
+                     thinkingGrownup: numGrownupThinking/nComparisons, 
+                     thinkingChild: numChildThinking/nComparisons, 
+                     thinkingBaby: numBabyThinking/nComparisons, 
+                     thinkingDog: numDogThinking/nComparisons, 
+                     thinkingBear: numBearThinking/nComparisons, 
+                     thinkingBug: numBugThinking/nComparisons, 
+                     thinkingRobot: numRobotThinking/nComparisons, 
+                     thinkingComputer: numComputerThinking/nComparisons, 
+                     thinkingCar: numCarThinking/nComparisons, 
+                     thinkingStapler: numStaplerThinking/nComparisons
+                    }
+
+  //   return numberVals
+  return percentVals
+}
+
+// var dist = Infer({method: 'forward', model: model});
+var dist = Infer({method: 'MCMC', samples: 10, lag: 100, burn: 5, model: model});
+
+viz.table(dist)
